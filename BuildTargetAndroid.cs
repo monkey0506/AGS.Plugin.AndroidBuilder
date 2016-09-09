@@ -134,7 +134,7 @@ namespace AGS.Plugin.AndroidBuilder
                 {
                     UseShellExecute = false,
                     FileName = "cmd.exe",
-                    Arguments = "/C \"gradlew.bat assembleRelease\" & pause",
+                    Arguments = "/C gradlew.bat nativeLibsToJar & gradlew.bat assembleRelease & pause",
                     CreateNoWindow = false,
                     WorkingDirectory = GetCompiledPath(STUDIO_PROJECT_DIR)
                 }
