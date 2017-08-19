@@ -36,7 +36,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="AGS.Types">
-      <HintPath>..\..\AGS\Adventure Game Studio\3.4.0-rc2\AGS.Types.dll</HintPath>
+      <HintPath>..\..\AGS\Adventure Game Studio\3.4.0-P4\AGS.Types.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />
@@ -54,6 +54,7 @@
     </Compile>
     <Compile Include="AndroidMetadata.cs" />
     <Compile Include="BuildTargetAndroid.cs" />
+    <Compile Include="Utility\AGSVersion.cs" />
     <Compile Include="Utility\BuildTargetBase.cs" />
     <Compile Include="AndroidBuilderComponent.cs" />
     <Compile Include="AndroidBuilderPlugin.cs" />

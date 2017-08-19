@@ -47,10 +47,10 @@ namespace AGS.Plugin.AndroidBuilder
             sdkDir = FindAndroidSdkPath();
             if (sdkDir == null)
                 sdkDir = ""; // TODO: wizard to locate Android SDK
-            FindCmd("javac", out hasJDK); // presence of 'javac' command indicates JDK installation
+            hasJDK = (FindExePath("javac.exe") != null); // presence of 'javac' command indicates JDK installation
             if (!hasJDK)
             {
-                MessageBox.Show("JDK not found! Android builder will not be available until the JDK is installed (requires editor restart). Please obtain the JDK from Oracle.com.",
+                MessageBox.Show("JDK not found! Android builder will not be available until the JDK is installed (requires editor restart). Please obtain the JDK from Oracle.com and ensure the JDK's location is in the environment PATH.",
                     "JDK missing!", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
             }
         }
@@ -259,7 +259,14 @@ namespace AGS.Plugin.AndroidBuilder
         /// </summary>
         public static string ObbInputDirectory
         {
-            get { return Path.Combine(BuildTargetBase.EDITOR_OUTPUT_DIRECTORY, BuildTargetBase.EDITOR_DATA_OUTPUT_DIRECTORY); }
+            get
+            {
+                if (AndroidBuilderPlugin.AGS_VERSION_CURRENT < AndroidBuilderPlugin.AGS_VERSION_341)
+                {
+                    return BuildTargetAndroid.Instance.GetCompiledPath(BuildTargetAndroid.TMP_DATA_DIR);
+                }
+                return Path.Combine(BuildTargetBase.EDITOR_OUTPUT_DIRECTORY, BuildTargetBase.EDITOR_DATA_OUTPUT_DIRECTORY);
+            }
         }
 
         /// <summary>

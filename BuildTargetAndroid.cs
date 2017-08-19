@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using System.IO.Compression;
 using System.Windows.Forms;
+using System;
 
 namespace AGS.Plugin.AndroidBuilder
 {
@@ -16,6 +17,8 @@ namespace AGS.Plugin.AndroidBuilder
         public const string ANDROID_DIR = "Android";
         public const string STUDIO_PROJECT_DIR = "Studio";
         public const string RELEASE_DIR = "Release";
+        public const string TMP_DATA_DIR = "data";
+        public const string LIBS_DIR = "libs";
 
         private static BuildTargetAndroid _instance;
 
@@ -56,6 +59,16 @@ namespace AGS.Plugin.AndroidBuilder
         /// </summary>
         private bool CreateObb(CompileMessages errors)
         {
+            if (AndroidBuilderPlugin.AGS_VERSION_CURRENT < AndroidBuilderPlugin.AGS_VERSION_341)
+            {
+                Directory.CreateDirectory(AndroidMetadata.ObbInputDirectory);
+                string[] files = Directory.GetFiles(EDITOR_OUTPUT_DIRECTORY);
+                foreach (string file in files)
+                {
+                    string shortName = Path.GetFileName(file);
+                    Utility.HardlinkOrCopy(Path.Combine(AndroidMetadata.ObbInputDirectory, shortName), file, true);
+                }
+            }
             if (File.Exists(AndroidMetadata.AltObbFilePath)) // if a previous OBB exists that WON'T be overwritten, delete it
             {
                 File.Delete(AndroidMetadata.AltObbFilePath);
@@ -91,6 +104,23 @@ namespace AGS.Plugin.AndroidBuilder
                 proc.WaitForExit();
                 // TODO: check process return code
             }
+            if (AndroidBuilderPlugin.AGS_VERSION_CURRENT < AndroidBuilderPlugin.AGS_VERSION_341)
+            {
+                try
+                {
+                    Directory.Delete(AndroidMetadata.ObbInputDirectory);
+                }
+                catch
+                {
+                    try
+                    {
+                        Directory.Delete(AndroidMetadata.ObbInputDirectory);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
             return true;
         }
 
@@ -116,6 +146,26 @@ namespace AGS.Plugin.AndroidBuilder
             return true;
         }
 
+        private bool CopyLibrariesToAndroidStudioProject(CompileMessages errors)
+        {
+            foreach (KeyValuePair<string, string> kvPair in GetRequiredLibraryPaths())
+            {
+                string library = kvPair.Value.EndsWith(kvPair.Key) ? kvPair.Value : Path.Combine(kvPair.Value, kvPair.Key);
+                try
+                {
+                    string destPath = GetCompiledPath(STUDIO_PROJECT_DIR, LIBS_DIR, kvPair.Key);
+                    Directory.CreateDirectory(Path.GetDirectoryName(destPath));
+                    File.Copy(library, destPath, true);
+                }
+                catch (System.Exception e)
+                {
+                    errors.Add(new CompileError("Error copying Android library file '" + kvPair.Key + "':" + System.Environment.NewLine + e.Message));
+                    return false;
+                }
+            }
+            return true;
+        }
+
         /// <summary>
         /// Invokes the gradle wrapper to build the Android Studio project.
         /// </summary>
@@ -127,6 +177,10 @@ namespace AGS.Plugin.AndroidBuilder
                 File.WriteAllText(localProperties, "sdk.dir=" + AndroidMetadata.SdkDir.Replace("\\", "\\\\"));
             }
             TemplateFile.WriteDirtyOrMissingFiles(); // write any dirty or missing template files
+            if (!CopyLibrariesToAndroidStudioProject(errors))
+            {
+                return false;
+            }
             // start gradle command
             using (Process proc = new Process
             {
@@ -171,11 +225,36 @@ namespace AGS.Plugin.AndroidBuilder
                 ExtractLauncherIcons(errors) && BuildGradle(errors) && DeployApk(errors);
         }
 
+        public override IDictionary<string, string> GetRequiredLibraryPaths()
+        {
+            Dictionary<string, string> paths = new Dictionary<string, string>();
+            string[] libs =
+            {
+                "libags_parallax.so",
+                "libags_snowrain.so",
+                "libagsblend.so",
+                "libagsengine.so",
+                "libagsflashlight.so",
+                "libagslua.so",
+                "libagsspritefont.so",
+                "libpe.so"
+            };
+            string androidDir = Path.Combine(AndroidBuilderPlugin.AGSEditorDirectory, ANDROID_DIR);
+            foreach (string arch in new string[] { "armeabi", "armeabi-v7a", "mips", "x86" })
+            {
+                foreach (string lib in libs)
+                {
+                    paths.Add(Path.Combine(arch, lib), androidDir);
+                }
+            }
+            return paths;
+        }
+
         public override bool IsAvailable
         {
             get
             {
-                return AndroidMetadata.HasJDK && (!string.IsNullOrEmpty(AndroidMetadata.SdkDir));
+                return base.IsAvailable && AndroidMetadata.HasJDK && (!string.IsNullOrEmpty(AndroidMetadata.SdkDir));
             }
         }
 
@@ -198,11 +277,6 @@ namespace AGS.Plugin.AndroidBuilder
         public override string[] GetPlatformStandardSubfolders()
         {
             return new string[] { GetCompiledPath(STUDIO_PROJECT_DIR), GetCompiledPath(RELEASE_DIR) };
-        }
-
-        public override IDictionary<string, string> GetRequiredLibraryPaths()
-        {
-            return new Dictionary<string, string>();
         }
     }
 }
